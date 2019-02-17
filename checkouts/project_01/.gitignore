@@ -1,5 +1,6 @@
 /target
 /classes
+/checkouts
 profiles.clj
 pom.xml
 pom.xml.asc
@@ -9,7 +10,3 @@ pom.xml.asc
 /.nrepl-port
 .hgignore
 .hg/
-
-# emacs
-\#*\#
-.\#*
