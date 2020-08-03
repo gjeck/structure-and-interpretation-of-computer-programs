@@ -11,9 +11,9 @@
 
 (defn make-rat [n d]
   "create a rational number e.g. 1/2"
-  (let [g (Math/abs (gcd n d))]
-    (cond (and (< n 0) (< d 0)) (list (/ (Math/abs n) g) (/ (Math/abs d) g))
-          (and (> n 0) (< d 0)) (list (/ (- n) g) (/ (Math/abs d) g))
+  (let [g (math/abs (gcd n d))]
+    (cond (and (< n 0) (< d 0)) (list (/ (math/abs n) g) (/ (math/abs d) g))
+          (and (> n 0) (< d 0)) (list (/ (- n) g) (/ (math/abs d) g))
           :else (list (/ n g) (/ d g)))))
 
 (defn numer [rat]
@@ -76,7 +76,7 @@
               (xcoord (seg-start seg)))
         dy (- (ycoord (seg-end seg))
               (ycoord (seg-start seg)))]
-    (Math/sqrt (+ (* dx dx)
+    (math/sqrt (+ (* dx dx)
                   (* dy dy)))))
 
 (defn my-cons [a b]
@@ -282,7 +282,6 @@
 ;; of the sequence with the result of combining all the elements to the right. There is also a
 ;; `fold-left`, which is similar to `fold-right`, except that it combines elements working in the
 ;; opposite direction:
-
 (defn fold-left [op initial sequence]
   (defn iter [result rem]
     (if (empty? rem)
@@ -347,7 +346,6 @@
 ;; no queen is in check from any other.
 ;; Implementation should output a solution set. To check the number of solutions, use
 ;; `count`. E.g: `(count (queens-puzzle 8))` is 92.
-
 (defn queens-puzzle [board-size]
   "Outputs distinct solutions for the queens-puzzle of board size :n"
   (defn make-position [row col]
@@ -380,3 +378,130 @@
                                                 (range 0 board-size)))
                       (queen-cols (- k 1))))))
   (queen-cols board-size))
+
+;; Example 2.3.3
+;; Representing Sets using Binary Search Trees.
+(defn make-tree-node
+  ([item] (make-tree-node item nil nil))
+  ([item left] (make-tree-node item left nil))
+  ([item left right]
+   (vector item left right)))
+
+(defn tree-node-item [node]
+  (first node))
+
+(defn tree-node-left [node]
+  (nth node 1))
+
+(defn tree-node-right [node]
+  (last node))
+
+(defn tree-contains? [item tree]
+  (cond (nil? tree) false
+        (= item (tree-node-item tree)) true
+        (< item (tree-node-item tree)) (recur item (tree-node-left tree))
+        (> item (tree-node-item tree)) (recur item (tree-node-right tree))))
+
+(defn tree-append [item tree]
+  (cond (nil? tree) (make-tree-node item)
+        (= item (tree-node-item tree)) tree
+        (< item (tree-node-item tree)) (make-tree-node (tree-node-item tree)
+                                                       (tree-append item (tree-node-left tree))
+                                                       (tree-node-right tree))
+        (> item (tree-node-item tree)) (make-tree-node (tree-node-item tree)
+                                                       (tree-node-left tree)
+                                                       (tree-append item (tree-node-right tree)))))
+
+;; Example 2.3.4
+;; Huffman Encoding Trees
+(defn make-leaf [sym weight]
+  (vector :leaf sym weight))
+
+(defn leaf? [obj]
+  (= :leaf (first obj)))
+
+(defn leaf-symbol [x]
+  (nth x 1))
+
+(defn leaf-weight [x]
+  (last x))
+
+(defn code-tree-left [tree]
+  (first tree))
+
+(defn code-tree-right [tree]
+  (nth tree 1))
+
+(defn code-tree-symbols [tree]
+  (cond (nil? tree) #{}
+        (leaf? tree) #{(leaf-symbol tree)}
+        (and (>= (count tree) 2) (not (nil? (nth tree 2)))) (nth tree 2)
+        :else (clojure.set/union (code-tree-symbols (code-tree-left tree)) (code-tree-symbols (code-tree-right tree)))))
+
+(defn code-tree-weight [tree]
+  (if (leaf? tree)
+    (leaf-weight tree)
+    (last tree)))
+
+(defn make-code-tree [left right]
+  (vector left
+          right
+          (clojure.set/union (code-tree-symbols left) (code-tree-symbols right))
+          (+ (code-tree-weight left) (code-tree-weight right))))
+
+(defn huff-decode-choose-branch [bit branch]
+  (cond (= bit 0) (code-tree-left branch)
+        (= bit 1) (code-tree-right branch)
+        :else (throw (AssertionError. "bad bit"))))
+
+(defn huff-decode [bits tree]
+  (defn decode-1 [bits current-branch]
+    (if (nil? bits)
+      '[]
+      (let [next-branch (huff-decode-choose-branch (first bits) current-branch)]
+        (if (leaf? next-branch)
+          (cons (leaf-symbol next-branch)
+                (decode-1 (next bits) tree))
+          (decode-1 (next bits) next-branch)))))
+  (decode-1 bits tree))
+
+;; Exercise 2.68
+;; Define a `huff-encode` procedure that takes as arguments a message and a tree and produces the list of
+;; bits that gives the encoded message.
+(defn huff-encode-symbol [sym tree]
+  (if (not (leaf? tree))
+    (cond (contains? (code-tree-symbols (code-tree-left tree)) sym)
+          (concat [0] (huff-encode-symbol sym (code-tree-left tree)))
+          (contains? (code-tree-symbols (code-tree-right tree)) sym)
+          (concat [1] (huff-encode-symbol sym (code-tree-right tree)))
+          :else (throw (AssertionError. "symbol not contained in tree")))))
+
+(defn huff-encode [message tree]
+  (if (nil? message)
+    '[]
+    (concat (huff-encode-symbol (first message) tree)
+            (huff-encode (next message) tree))))
+
+;; Exercise 2.69
+;; Define a `generate-huffman-tree` procedure that takes as its argument a list of symbol-frequency pairs
+;; and generates a Huffman encoding tree according to the Huffman algorithm.
+(defn adjoin-leaf-set [x s]
+  (cond (or (nil? s) (empty? s)) [x]
+        (< (leaf-weight x) (leaf-weight (first s))) (cons x s)
+        :else (cons (first s) (adjoin-leaf-set x (next s)))))
+
+(defn make-leaf-set [pairs]
+  (if (nil? pairs)
+    '[]
+    (let [pair (first pairs)]
+      (adjoin-leaf-set (make-leaf (first pair) (last pair))
+                       (make-leaf-set (next pairs))))))
+
+(defn successive-merge-pairs [leaf-set]
+  (if (<= (count leaf-set) 2)
+    (make-code-tree (first leaf-set) (last leaf-set))
+    (make-code-tree (first leaf-set) (successive-merge-pairs (next leaf-set)))))
+
+(defn generate-huffman-tree [pairs]
+  "Generates a Huffman encoding tree initialized with a sequence of pairs. E.g [[:a 4] [:b 2]]"
+  (successive-merge-pairs (reverse (make-leaf-set pairs))))
