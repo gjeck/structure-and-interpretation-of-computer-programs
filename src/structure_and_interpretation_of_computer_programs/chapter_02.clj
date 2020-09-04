@@ -505,3 +505,86 @@
 (defn generate-huffman-tree [pairs]
   "Generates a Huffman encoding tree initialized with a sequence of pairs. E.g [[:a 4] [:b 2]]"
   (successive-merge-pairs (reverse (make-leaf-set pairs))))
+
+;; Section 2.5.1
+;; Data-Directed Programming
+;; When dealing with a set of generic operations that are common to a set of
+;; different types we are, in effect, dealing with a 2-dimensional table of
+;; operations to types.
+(defn attach-tag [type-tag contents]
+  (cons type-tag contents))
+
+(defn datum-type-tag [datum]
+  (first datum))
+
+(defn datum-contents [datum]
+  (rest datum))
+
+;; Generic tagged dispatch table for rational numbers
+(defn tag [x]
+  (attach-tag :rational x))
+(def math-package-table
+  {:rational
+   {:add (fn [x y] (tag (add-rat x y)))
+    :sub (fn [x y] (tag (sub-rat x y)))}})
+
+;; Lecture 3B: Symbolic Differentiation and Quotation
+(defn atomic? [exp]
+  (not (sequential? exp)))
+
+(defn sum? [exp]
+  (and (not (atomic? exp))
+       (= (first exp) '+)))
+
+(defn constant? [exp var]
+  (and (atomic? exp)
+       (not (= exp var))))
+
+(defn same-var? [exp var]
+  (and (atomic? exp)
+       (= exp var)))
+
+(defn product? [exp]
+  (and (not (atomic? exp))
+       (= (first exp) '*)))
+
+(defn make-sum [a1 a2]
+  (cond (and (number? a1)
+             (number? a2)) (+ a1 a2)
+        (and (number? a1)
+             (= a1 0)) a2
+        (and (number? a2)
+             (= a2 0)) a1
+        :else (vector '+ a1 a2)))
+
+(defn make-product [m1 m2]
+  (cond (and (number? m1)
+             (number? m2)) (* m1 m2)
+        (and (number? m1)
+             (= m1 0)) 0
+        (and (number? m2)
+             (= m2 0)) 0
+        :else (vector '* m1 m2)))
+
+(defn a1 [exp]
+  (nth exp 1))
+
+(defn a2 [exp]
+  (nth exp 2))
+
+(defn m1 [exp]
+  (nth exp 1))
+
+(defn m2 [exp]
+  (nth exp 2))
+
+(defn derivative [exp var]
+  "handles a couple basic cases for solving derivatives"
+  (cond (constant? exp var) 0
+        (same-var? exp var) 1
+        (sum? exp) (make-sum (derivative (a1 exp) var)
+                             (derivative (a2 exp) var))
+        (product? exp) (make-sum (make-product (m1 exp)
+                                               (derivative (m2 exp) var))
+                                 (make-product (derivative (m1 exp) var)
+                                               (m2 exp)))))
