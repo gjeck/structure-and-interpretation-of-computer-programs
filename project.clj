@@ -1,7 +1,6 @@
-(defproject structure-and-interpretation-of-computer-programs "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
-  :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
-            :url "https://www.eclipse.org/legal/epl-2.0/"}
+(defproject structure-and-interpretation-of-computer-programs "0.0.1"
+  :description "A workspace for going through the SICP textbook"
+  :url "https://github.com/gjeck/structure-and-interpretation-of-computer-programs"
+  :license {:name "MIT"}
   :dependencies [[org.clojure/clojure "1.10.0"], [org.clojure/math.numeric-tower "0.0.4"]]
   :repl-options {:init-ns structure-and-interpretation-of-computer-programs.core})
