@@ -1,3 +1,4 @@
+# clojure
 /target
 /classes
 profiles.clj
@@ -13,3 +14,12 @@ pom.xml.asc
 # emacs
 \#*\#
 .\#*
+
+# racket
+*.rkt~
+*.rkt.bak
+\#*.rkt#
+\#*.rkt#*#
+compiled/
+*.zo
+*.dep
