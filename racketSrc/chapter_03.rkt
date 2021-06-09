@@ -76,6 +76,20 @@
         (else (queue-front-ptr-set! q (mcdr (queue-front-ptr q)))
               q)))
 
+; Exercise 3.22
+; Provide an object-oriented implementation of a queue
+(define (make-queue-obj)
+  (let ([q (make-queue)])
+    (define (insert! item)
+      (queue-insert! q item))
+    (define (dispatch m)
+      (cond ((equal? m 'first) (queue-front q))
+            ((equal? m 'empty?) (queue-empty? q))
+            ((equal? m 'insert!) insert!)
+            ((equal? m 'remove!) (queue-remove! q))
+            (else (error "Method not found" m))))
+    dispatch))
+
 ; Exercise 3.27:
 ; Memoization (or tabulation) is a technique that enables a procedure to record, in a local table,
 ; values that have previously been computed. This technique can make a vast difference in the
@@ -115,7 +129,7 @@
       (cond ((eq? m 'get-signal) signal-value)
             ((eq? m 'set-signal!) set-my-signal!)
             ((eq? m 'add-action!) accept-action-procedure!)
-            (else (error "Unknown Operation " m))))
+            (else (error "Unknown Operation" m))))
     dispatch))
 
 (define (call-each procedures)
@@ -207,6 +221,76 @@
   (connector-set-value! connector constant me)
   me)
 
+;; Section 3.4.2
+;; Mechanisms for controlling concurrency. Mutexes and atomic operations.
+(define (test-and-set! cell)
+  (sync ;; simulated atomic instruction
+   (lambda ()
+     (if (mcar cell)
+         #t
+         (begin (set-mcar! cell #t)
+                #f)))))
+
+(define (clear! cell)
+  (set-mcar! cell #f))
+
+(define (make-mutex)
+  (let ([cell (list #f)])
+    (define (the-mutex m)
+      (cond ((eq? m 'acquire)
+             (if (test-and-set! cell)
+                 (the-mutex 'acquire)
+                 #f))
+            ((eq? m 'release) (clear! cell))))
+    the-mutex))
+
+(define (make-serializer)
+  (let ([mutex (make-mutex)])
+    (lambda (p)
+      (define (serialized-p . args)
+        (mutex 'acquire)
+        (let ([val (apply p args)])
+          (mutex 'release)
+          val))
+      serialized-p)))
+
+;; Section 3.5.2
+;; Infinite Streams, and the Sieve of Eratosthenes
+(require racket/stream)
+
+(define (integers-starting-from n)
+  (stream-cons n (integers-starting-from (+ n 1))))
+
+(define (divisible? x y)
+  (= (remainder x y) 0))
+
+(define (sieve s)
+  (stream-cons (stream-first s)
+               (sieve (stream-filter (lambda (x) (not (divisible? x (stream-first s))))
+                                     (stream-rest s)))))
+
+(define primes-stream (sieve (integers-starting-from 2)))
+
+;; Exercise 3.50
+;; Complete a definition of `stream-map-all` to allow procedures to take multiple arguments
+(define (stream-map-all proc . argstreams)
+  (if (stream-empty? (car argstreams))
+      empty-stream
+      (stream-cons
+       (apply proc (map stream-first argstreams))
+       (apply stream-map-all (cons proc (map stream-rest argstreams))))))
+
+;; Exercise 3.54
+;; Define a procedure `stream-mult-all` analogous to `stream-map-all`, that produces the element-wise
+;; product of its tow input streams. Use this together with the stream of integers to create a stream
+;; of factorials
+(define ones-stream (stream-cons 1 ones-stream))
+(define (stream-add-all s1 s2) (stream-map-all + s1 s2))
+(define ints-stream (stream-cons 1 (stream-add-all ones-stream ints-stream)))
+
+(define (stream-mult-all s1 s2) (stream-map-all * s1 s2))
+(define factorials-stream (stream-cons 1 (stream-mult-all factorials-stream ints-stream)))
+
 (module+ test
   (require rackunit)
   (require rackunit/text-ui)
@@ -233,9 +317,34 @@
          "3.19: Has Cycle"
        (let ([list-with-cycle (make-cycle (mlist 1 2 3 4))])
          (check-true (has-cycle? list-with-cycle))
+         (check = (mcar list-with-cycle) 1)
+         (check = (mcar (mcdr (mcdr (mcdr list-with-cycle)))) 4)
+         (check = (mcar (mcdr (mcdr (mcdr (mcdr list-with-cycle))))) 1)
          (check-false (has-cycle? (mlist 1 2 3 4)))))
+     (test-case
+         "3.22: Object Oriented Queue"
+       (let ([my-queue (make-queue-obj)])
+         (begin
+           (check-true (my-queue 'empty?))
+           ((my-queue 'insert!) 1)
+           (check = (my-queue 'first) 1)
+           (check-false (my-queue 'empty?))
+           ((my-queue 'insert!) 2)
+           (check = (my-queue 'first) 1)
+           (my-queue 'remove!)
+           (check = (my-queue 'first) 2)
+           (my-queue 'remove!)
+           (check-true (my-queue 'empty?)))))
      (test-case
          "3.27: Memoization"
        (begin (check = (memo-fib 8) 21)
-              (check = (memo-fib 16) 987)))))
+              (check = (memo-fib 16) 987)))
+     (test-case
+         "3.5.2: Sieve of Eratosthenes"
+      (begin (check = (stream-ref primes-stream 0) 2)
+             (check = (stream-ref primes-stream 50) 233)))
+     (test-case
+         "3.54: Factorial Stream"
+       (begin (check equal? (stream->list (stream-take factorials-stream 6))
+                     '(1 1 2 6 24 120))))))
   (run-tests chapter-03-tests))
